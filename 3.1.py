@@ -43,28 +43,34 @@ def generate_linspace(start, end, num_points):
     return [start + i * step for i in range(num_points)]
 
 def plot_interpolation(x, y, func, lagrange_func, newton_func, title, x_star):
-    x_plot = generate_linspace(min(x)-0.5, max(x)+0.5, 500)
-    y_exact = []
-    y_lagrange = []
-    y_newton = []
+    # 1) диапазон без отступов
+    x_left, x_right = min(x), max(x)
+    x_plot = generate_linspace(x_left, x_right, 800)
+
+    y_exact, y_lagrange, y_newton = [], [], []
     for xi in x_plot:
-        y_exact.append(func(xi))
+        if abs(math.sin(xi)) < 1e-6:
+            y_exact.append(float('nan'))
+        else:
+            y_exact.append(func(xi))
+
         _, yi_l = lagrange_func(x, y, (xi, 0))
         _, yi_n = newton_func(x, y, (xi, 0))
         y_lagrange.append(yi_l)
         y_newton.append(yi_n)
 
     plt.figure()
-    plt.plot(x_plot, y_exact, label='y = ctg(x)+x', linewidth=2)
+    plt.plot(x_plot, y_exact, label='y = ctg(x) + x', linewidth=2)
     plt.plot(x_plot, y_lagrange, '--', label='Лагранж')
     plt.plot(x_plot, y_newton, ':', label='Ньютон')
-    plt.scatter(x, y, color='red', label='Точки')
-    plt.scatter(x_star, [func(x_star)], color='green', label='X*', zorder=5)
+    plt.scatter(x, y, color='red', label='Узлы')
+    # x_star может случайно попасть в окрестность асимптоты — подстрахуемся
+    yx = func(x_star) if abs(math.sin(x_star)) >= 1e-6 else float('nan')
+    plt.scatter([x_star], [yx], color='green', label='X*', zorder=5)
+
     plt.title(title)
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.legend()
-    plt.grid(True)
+    plt.xlabel('x'); plt.ylabel('y')
+    plt.grid(True); plt.legend()
     plt.show()
 
 if __name__ == '__main__':

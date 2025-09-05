@@ -57,13 +57,13 @@ def check_simple_iteration(a, b):
 # Проверка условий сходимости внутри интервала
 def check_simple_iteration_conditions(phi, x0, a, b, q_max=0.99):
     num_points = 100
-    h = (b - a) / num_points
+    h = (b - a) / num_points # делим на 100 отрезочков
     max_derivative = 0
     for i in range(num_points + 1):
         x = a + i * h
         try:
-            derivative = phi_derivative(x)
-            current_abs_derivative = abs(derivative)
+            derivative = phi_derivative(x) # значение в производной в точке х
+            current_abs_derivative = abs(derivative)  # текущеее аобсолютное значение
             if current_abs_derivative > max_derivative:
                 max_derivative = current_abs_derivative
         except ValueError:

@@ -5,35 +5,56 @@ import matplotlib.pyplot as plt
 a = 4
 
 def f_system(x):
-    """Система нелинейных уравнений"""
     return [
         x[0]**2 / (a**2) + x[1]**2 / ((a/2)**2) - 1,
         a * x[1] - math.exp(x[0]) - x[0]
     ]
 
 def J_system(x):
-    """Матрица Якоби"""
     return [
 		[2 * x[0] / (a**2), 2 * x[1] / ((a/2)**2)],
         [-math.exp(x[0]) - 1, a]
     ]
 
 def phi_system(x):
-    """Функция для метода простой итерации"""
-    try:
-        x2_new = math.sqrt((1 - x[0]**2 / (a**2)) * ((a/2)**2))
-        x1_new = math.log(a * x2_new - x[0] + 1)  # Приближенная итерация
-    except (ValueError, ZeroDivisionError):
-        x2_new = x[1]
-        x1_new = x[0]
+    x1, x2 = x
+
+    rad = 1.0 - (x1*x1) / (a*a)
+    if rad < 0:
+        x2_new = x2
+    else:
+        x2_candidate = (a/2.0) * math.sqrt(rad)
+        x2_new = x2_candidate if x2 >= 0 else -x2_candidate
+
+    # 2) x1 из второго уравнения: x1 = ln(a*x2 - x1)
+    denom = a * x2_new - x1
+    if denom <= 0:
+        # вне области определения log — мягкий откат
+        x1_new = x1
+    else:
+        x1_new = math.log(denom)
+
     return [x1_new, x2_new]
 
+
 def phi_derivative(x):
-    """Приближённая матрица производных (нулевая для оценки сходимости)"""
-    return [
-        [0, 0],
-        [0, 0]
-    ]
+    x1, x2 = x
+    J = [[0.0, 0.0],
+         [0.0, 0.0]]
+
+    denom = a * x2 - x1
+    # Производные Φ1, если определены
+    if denom > 0:
+        J[0][0] = -1.0 / denom           # dΦ1/dx1
+        J[0][1] =  a   / denom           # dΦ1/dx2
+
+    # Производные Φ2 (зависят только от x1)
+    under = a*a - x1*x1
+    if under > 0:
+        J[1][0] = - x1 / (2.0 * math.sqrt(under))  # dΦ2/dx1
+        J[1][1] = 0.0                               # dΦ2/dx2
+
+    return J
 
 def compute_spectral_norm(J):
     norm1 = abs(J[0][0]) + abs(J[0][1])
@@ -41,27 +62,32 @@ def compute_spectral_norm(J):
     return max(norm1, norm2)
 
 def simple_iteration(phi, phi_der, x0, epsilon, max_iter=100):
-    x = x0.copy()
-    flag = 1
+    x = x0[:]
+    flag = True
     for k in range(max_iter):
         x_new = phi(x)
-        J_phi = phi_der(x)
+        J_phi = phi_der(x_new)
         q = compute_spectral_norm(J_phi)
 
         if q >= 1:
-            flag = 0
-            raise ValueError(f"Условие сходимости нарушено: q = {q:.6f} >= 1 на итерации {k}")
+            flag = False
+            raise ValueError('Не выполнено условие сходимости')
 
-        delta_norm = max(abs(x_new[0] - x[0]), abs(x_new[1] - x[1]))
+        delta1 = abs(x_new[0] - x[0])
+        delta2 = abs(x_new[1] - x[1])
+        delta = max(delta1, delta2)
 
-        if delta_norm * q / (1 - q) < epsilon:
-            print(f"Решение найдено за {k + 1} итераций")
-            break
+        # 1) строгий теоретический критерий, если q<1
+        if q < 1 and delta * q / (1 - q) < epsilon:
+            return x_new, k + 1, 1
+
+        # 2) практический критерий как fallback
+        if delta < epsilon:
+            return x_new, k + 1, 1
 
         x = x_new
-    else:
-        print(f"Достигнуто максимальное число итераций {max_iter}")
-    return x, k + 1, flag
+
+    return x, max_iter, 0, flag
 
 def newton_method(f, J, x0, epsilon, max_iter=100):
     x = x0.copy()
@@ -130,6 +156,12 @@ if __name__ == "__main__":
         print(f"Итераций: {iter_si}")
     except ValueError as e:
         print(e)
+
+    print("\nПроверка сходимости метода простых итераций:")
+    if flag:
+        print("Условия сходимости выполнены")
+    else:
+        print("Условия сходимости не выполнены")
 
     print("\nМетод Ньютона:")
     try:
